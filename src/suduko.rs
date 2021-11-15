@@ -171,6 +171,54 @@ fn print_board(board:&BoardStruct) {
 fn solve_board(board:&BoardStruct, depth:i8, iteration:&mut u64){
     *iteration += 1;
     
+    if *iteration % 1000 == 0 {
+        println!("iteration {} depth {} ", iteration, depth);
+        print_board(&board);
+    }
+
+    let mut zero_count:i8 = 0;
+    let mut def_count  =0;
+    for row in 0..9 {
+        for col in 0..9 {
+            if board[row][col] == 0 {
+                zero_count += 1;
+                let mut ecount = 0;
+                let mut lastdigit = 0;
+                for digit in 1i8..10 {
+                    if is_elegible(&board, col, row, digit) {
+                        ecount += 1;
+                        lastdigit = digit;
+                    }
+                }
+                if ecount == 1 {
+                    def_count += 1;
+                    println!("Hey! row {} col {} digit {} is the only option!", row, col, lastdigit);
+                    let mut board2 = board.clone();
+                    board2[row][col] = lastdigit;
+                    solve_board(&board2, depth+1, iteration);
+                }
+            }
+        }
+    }
+
+    if zero_count == 0 {
+        print_board(&board);
+        panic!("found!");
+    }
+
+    if def_count == 0 {
+        print_board(&board);
+        println!("--------------------------------------------------------------------");
+        solve_board_brute(&board, depth+1, iteration);
+        return;
+    }
+
+}
+
+
+fn solve_board_brute(board:&BoardStruct, depth:i8, iteration:&mut u64){
+    *iteration += 1;
+    
     if *iteration % 1000000 == 0 {
         println!("iteration {} depth {} ", iteration, depth);
         print_board(&board);
@@ -184,9 +232,8 @@ fn solve_board(board:&BoardStruct, depth:i8, iteration:&mut u64){
                 for digit in 1i8..10 {
                     if is_elegible(&board, col, row, digit) {
                         let mut board2 = board.clone();
-                        //println!("On row {} col {}, digit {} is possible at depth {}", row+1, col+1, digit, depth);
                         board2[row][col] = digit;
-                        solve_board(&board2, depth+1, iteration);
+                        solve_board_brute(&board2, depth+1, iteration);
                     }
                 }
             }
