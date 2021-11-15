@@ -1,13 +1,17 @@
 
 //mod time;
 //mod scratch;
-//mod suduko;
-mod lua;
+mod suduko;
+//mod lua;
 
 fn main() {
 
+
     //scratch::run();
-    //suduko::run();
-    lua::run().expect("fatal");
+    suduko::run();
+    //lua::run().expect("fatal");
+
+    
+    
 
 }

@@ -25,7 +25,6 @@ pub fn run() -> LuaResult<()> {
         end
     ").exec()?;
 
-    map_table2.
-
+ 
     Ok(())
 }
