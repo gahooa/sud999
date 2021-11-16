@@ -1,9 +1,12 @@
 
 use std::{fmt::Write, io::Read};
+const BIT_NONE:u32 = 0b000000000;
+const BIT_NINE:u32 = 0b111111111;
+
 
 
 type BoardStruct = [[i8; 9]; 9];
-
+type BoardBits = [[u32; 9]; 9];
 
 struct Position{
     line: usize,
@@ -16,17 +19,7 @@ struct GameStruct {
 pub fn run() {
 
     let mut game = GameStruct{
-        board: [   
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,0,0,0], 
-            [0,0,0,0,0,0,9,0,0], 
-            [0,0,0,0,0,2,0,0,0], 
-            [0,0,0,0,5,0,0,0,0], 
-        ]
+        board: [[ -1; 9]; 9],  
     };
 
     
@@ -58,7 +51,7 @@ pub fn run() {
     println!("\n*** Board Accepted ***\n");
     print_board(&game.board);
 
-    solve_board(&game.board, 0, &mut 0);
+    solve_game(&game);
 }
 
 
@@ -141,6 +134,7 @@ fn print_board(board:&BoardStruct) {
 
     let pc = |num:i8| {
         match num {
+            -1 => 'N',
             0 => '.',
             1 => '1',
             2 => '2',
@@ -167,106 +161,86 @@ fn print_board(board:&BoardStruct) {
     }
 }
 
-
-fn solve_board(board:&BoardStruct, depth:i8, iteration:&mut u64){
-    *iteration += 1;
-    
-    if *iteration % 1000 == 0 {
-        println!("iteration {} depth {} ", iteration, depth);
-        print_board(&board);
-    }
-
-    let mut zero_count:i8 = 0;
-    let mut def_count  =0;
+fn print_bits(board_bits:&BoardBits) {
     for row in 0..9 {
         for col in 0..9 {
-            if board[row][col] == 0 {
-                zero_count += 1;
-                let mut ecount = 0;
-                let mut lastdigit = 0;
-                for digit in 1i8..10 {
-                    if is_elegible(&board, col, row, digit) {
-                        ecount += 1;
-                        lastdigit = digit;
-                    }
+            print!("{:#011b}  ", board_bits[row][col]);
+            if col % 3 == 2 {
+                print!("  ");
+            }
+        }
+        if row % 3 == 2 {
+            println!("");
+        }
+        println!("");
+    }
+}
+
+
+
+
+fn solve_game(game:&GameStruct){
+
+    loop{
+        let mut board_bits:BoardBits = [[BIT_NONE; 9]; 9];
+        let mut count_empty = 0;
+        for row in 0..9 {
+            for col in 0..9 {
+                if game.board[row][col] == 0 {
+                    count_empty += 1;
+                    board_bits[row][col] = solve_bits(&game, row, col);
                 }
-                if ecount == 1 {
-                    def_count += 1;
-                    println!("Hey! row {} col {} digit {} is the only option!", row, col, lastdigit);
-                    let mut board2 = board.clone();
-                    board2[row][col] = lastdigit;
-                    solve_board(&board2, depth+1, iteration);
+                else {
+                    board_bits[row][col] = (game.board[row][col] as u32).pow(2); 
                 }
             }
         }
-    }
-
-    if zero_count == 0 {
-        print_board(&board);
-        panic!("found!");
-    }
-
-    if def_count == 0 {
-        print_board(&board);
-        println!("--------------------------------------------------------------------");
-        solve_board_brute(&board, depth+1, iteration);
+    
+        if count_empty == 0 {
+            return;
+        }
+        print_board(&game.board);
+        print_bits(&board_bits);
         return;
     }
 
 }
 
-
-fn solve_board_brute(board:&BoardStruct, depth:i8, iteration:&mut u64){
-    *iteration += 1;
+fn solve_bits(game:&GameStruct, row:usize, col:usize) -> u32 {
     
-    if *iteration % 1000000 == 0 {
-        println!("iteration {} depth {} ", iteration, depth);
-        print_board(&board);
-    }
+    let mut rval = BIT_NINE;
 
-    let mut zero_count:i8 = 0;
-    for row in 0..9 {
-        for col in 0..9 {
-            if board[row][col] == 0 {
-                zero_count += 1;
-                for digit in 1i8..10 {
-                    if is_elegible(&board, col, row, digit) {
-                        let mut board2 = board.clone();
-                        board2[row][col] = digit;
-                        solve_board_brute(&board2, depth+1, iteration);
-                    }
+    for digit in 1i8..10 {
+        let digit_bits = (digit as u32).pow(2);
+        
+        // subtract any matches on this row
+        for c in 0..9 {
+            if game.board[row][c] == digit {
+                rval = rval & (!digit_bits);
+                break;
+            }
+        }
+        
+        // subtract any matches on this col
+        for r in 0..9 {
+            if game.board[r][col] == digit {
+                rval = rval & (!digit_bits);
+                break;
+            }
+        }
+
+        // subtract any matches in this house
+        for c in col/3*3..col/3*3+3 {
+            for r in row/3*3..row/3*3+3 {
+                if game.board[r][c] == digit {
+                    rval = rval & (!digit_bits);
+                    break;
                 }
             }
         }
+       
     }
 
-
-    if zero_count == 0 {
-        print_board(&board);
-        panic!("found!");
-    }
+    return rval;
 }
 
-fn is_elegible(board:&BoardStruct, col:usize, row:usize, digit:i8) -> bool {
-    for c in 0..9 {
-        if board[row][c] == digit {
-            return false;
-        }
-    }
-
-    for r in 0..9 {
-        if board[r][col] == digit {
-            return false;
-        }
-    }
-
-    for c in col/3*3..col/3*3+3 {
-        for r in row/3*3..row/3*3+3 {
-            if board[r][c] == digit {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
