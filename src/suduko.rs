@@ -206,6 +206,10 @@ fn solve_game(game:&mut GameStruct){
             println!("SOLVED");
             return;
         }
+
+        //let mut s = String::new();
+        //println!("Enter to continue...");
+        //std::io::stdin().read_line(&mut s).expect("Fatal Error");
     }
     
 }
@@ -275,7 +279,7 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
                         let mut found_elsewhere = false;
                         for r in row/3*3..row/3*3+3 {
                             for c in col/3*3..col/3*3+3 {
-                                if r != row && c != col {
+                                if ! (r == row && c == col) {
                                     if game.board_bits[r][c] & digit_bits == digit_bits {
                                         found_elsewhere = true;
                                     }
