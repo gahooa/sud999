@@ -14,12 +14,14 @@ struct Position{
 }
 struct GameStruct {
     board: BoardStruct,
+    board_bits: BoardBits,
 }
 
 pub fn run() {
 
     let mut game = GameStruct{
-        board: [[ -1; 9]; 9],  
+        board: [[ -1; 9]; 9],
+        board_bits: [[BIT_NONE;9]; 9],  
     };
 
     
@@ -51,7 +53,7 @@ pub fn run() {
     println!("\n*** Board Accepted ***\n");
     print_board(&game.board);
 
-    solve_game(&game);
+    solve_game(&mut game);
 }
 
 
@@ -177,32 +179,122 @@ fn print_bits(board_bits:&BoardBits) {
 }
 
 
-
-
-fn solve_game(game:&GameStruct){
-
+fn solve_game(game:&mut GameStruct){
     loop{
-        let mut board_bits:BoardBits = [[BIT_NONE; 9]; 9];
+
+        let updated = solve_game_iteration(game);
+
+        print_board(&game.board);
+        print_bits(&game.board_bits);
+
+        if ! updated {
+            println!("Nothing updated");
+            return;
+        }
+
+        // Determine game is solved by counting zeros
         let mut count_empty = 0;
-        for row in 0..9 {
+        for row in 0..9{
             for col in 0..9 {
                 if game.board[row][col] == 0 {
                     count_empty += 1;
-                    board_bits[row][col] = solve_bits(&game, row, col);
-                }
-                else {
-                    board_bits[row][col] = 2u32.pow((game.board[row][col]-1).try_into().unwrap()); 
                 }
             }
         }
-    
+        
         if count_empty == 0 {
+            println!("SOLVED");
             return;
         }
-        print_board(&game.board);
-        print_bits(&board_bits);
-        return;
     }
+    
+}
+
+fn solve_game_iteration(game:&mut GameStruct) -> bool{
+
+    // Update all of the board bits
+    for row in 0..9 {
+        for col in 0..9 {
+            if game.board[row][col] == 0 {
+                game.board_bits[row][col] = solve_bits(&game, row, col);
+            }
+            else {
+                game.board_bits[row][col] = 2u32.pow((game.board[row][col]-1).try_into().unwrap()); 
+            }
+        }
+    }
+
+    // At this point we have an accurate BoardBits struct with all of the bits
+
+    for row in 0..9{
+        for col in 0..9 {
+            if game.board[row][col] == 0 {
+                for digit in 1..10 {
+                    println!("searching for onlies: row {} col {} digit {}", row+1, col+1, digit);
+                    let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
+                    
+                    // Only care about checking digits that are a possiblity
+                    if game.board_bits[row][col] & digit_bits == 0 {
+                        continue;
+                    }
+                    
+                    // If only digit in the row, then set that cell and return
+                    {
+                        let mut found_elsewhere = false;
+                        for c in 0..9 {
+                            if c != col {
+                                if game.board_bits[row][c] & digit_bits == digit_bits {
+                                    found_elsewhere = true;
+                                }
+                            }
+                        }
+                        if ! found_elsewhere {
+                            game.board[row][col] = digit;
+                            return true;
+                        }
+                    }
+
+                    // If only digit in the col, then set that cell and return
+                    {
+                        let mut found_elsewhere = false;
+                        for r in 0..9 {
+                            if r != row {
+                                if game.board_bits[r][col] & digit_bits == digit_bits {
+                                    found_elsewhere = true;
+                                }
+                            }
+                        }
+                        if ! found_elsewhere {
+                            game.board[row][col] = digit;
+                            return true;
+                        }
+                    }
+                    
+                    // If only digit in the col, then set that cell and return
+                    {
+                        let mut found_elsewhere = false;
+                        for r in row/3*3..row/3*3+3 {
+                            for c in col/3*3..col/3*3+3 {
+                                if r != row && c != col {
+                                    if game.board_bits[r][c] & digit_bits == digit_bits {
+                                        found_elsewhere = true;
+                                    }
+                                }
+                            }
+                        }
+                        if ! found_elsewhere {
+                            game.board[row][col] = digit;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    
+    return false;
+
 
 }
 
