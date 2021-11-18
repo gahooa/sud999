@@ -191,7 +191,7 @@ fn solve_game(game:&GameStruct){
                     board_bits[row][col] = solve_bits(&game, row, col);
                 }
                 else {
-                    board_bits[row][col] = (game.board[row][col] as u32).pow(2); 
+                    board_bits[row][col] = 2u32.pow((game.board[row][col]-1).try_into().unwrap()); 
                 }
             }
         }
@@ -211,7 +211,7 @@ fn solve_bits(game:&GameStruct, row:usize, col:usize) -> u32 {
     let mut rval = BIT_NINE;
 
     for digit in 1i8..10 {
-        let digit_bits = (digit as u32).pow(2);
+        let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
         
         // subtract any matches on this row
         for c in 0..9 {
