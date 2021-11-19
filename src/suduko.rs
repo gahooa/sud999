@@ -15,6 +15,8 @@ struct Position{
 struct GameStruct {
     board: BoardStruct,
     board_bits: BoardBits,
+    iterations: u64,
+    verbose: bool,
 }
 
 pub fn run() {
@@ -22,6 +24,8 @@ pub fn run() {
     let mut game = GameStruct{
         board: [[ -1; 9]; 9],
         board_bits: [[BIT_NONE;9]; 9],  
+        iterations: 0,
+        verbose: false,
     };
 
     
@@ -54,6 +58,7 @@ pub fn run() {
     print_board(&game.board);
 
     solve_game(&mut game);
+    print_game(&game);
 }
 
 
@@ -65,21 +70,56 @@ fn parse_board_string(bs:&mut String) -> Result<BoardStruct, String>{
     let mut actual_char_number = 0;
     let mut actual_line_number = 1;
     
-    if bs.trim() == "" {
-        bs.clear();
-        bs.write_str("
-          . . . | 3 8 . | 6 . 5
-          . . 7 | . . . | . . .
-          . . . | 6 7 5 | 1 . .
-          ------|-------|------
-          . . . | . . . | . . 4
-          . . . | 7 . 8 | . 6 3
-          . . . | 5 . . | 8 . .
-          ------|-------|------
-          8 . . | . 3 4 | 9 . 1
-          . . 9 | 1 . . | . . 7
-          . . 3 | . . . | . . .
-        ").expect("Panic");
+    match bs.trim() {
+        "s1" => {
+            bs.clear();
+            bs.write_str("
+            . . . | 3 8 . | 6 . 5
+            . . 7 | . . . | . . .
+            . . . | 6 7 5 | 1 . .
+            ------|-------|------
+            . . . | . . . | . . 4
+            . . . | 7 . 8 | . 6 3
+            . . . | 5 . . | 8 . .
+            ------|-------|------
+            8 . . | . 3 4 | 9 . 1
+            . . 9 | 1 . . | . . 7
+            . . 3 | . . . | . . .
+            ").expect("Panic");
+        },
+        "s2" => {
+            bs.clear();
+            bs.write_str("
+            . . . | . . . | . . .
+            . . 4 | . 5 . | 3 . 7
+            . . . | 6 . . | 5 1 .
+           -------|-------|-------
+            7 . . | . 9 8 | . . .
+            . 8 3 | . . . | . . .
+            . 9 1 | 3 7 . | . . .
+           -------|-------|-------
+            . 6 . | . . . | . . .
+            . 1 7 | 4 3 9 | . . .
+            . . 8 | . 1 . | . . 4
+            ").expect("Panic");
+        },
+        "x1" => {
+            bs.clear();
+            bs.write_str("
+            7 . . | 9 . . | . . 8
+            . 6 . | . . . | 7 3 .
+            . 3 . | 8 . 6 | . . 4
+           -------|-------|-------
+            . . . | . . . | . . .
+            6 . . | . . . | 1 2 .
+            . 4 9 | . . . | 3 . .
+           -------|-------|-------
+            . . . | . . . | . 6 .
+            2 1 . | 4 . . | 9 7 .
+            . . . | 3 . . | 8 . 1
+            ").expect("Panic");
+        },
+        _ => (),
     }
 
     for c in bs.chars() {
@@ -131,6 +171,10 @@ fn parse_board_string(bs:&mut String) -> Result<BoardStruct, String>{
 
 }
 
+fn print_game(game:&GameStruct) {
+    print_board(&game.board);
+    println!("Iterations: {}", game.iterations);
+}
 
 fn print_board(board:&BoardStruct) {
 
@@ -181,7 +225,8 @@ fn print_bits(board_bits:&BoardBits) {
 
 fn solve_game(game:&mut GameStruct){
     loop{
-
+        game.iterations += 1;
+        println!("Starting iteration {}", game.iterations);
         let updated = solve_game_iteration(game);
 
         print_board(&game.board);
@@ -230,17 +275,20 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
 
     // At this point we have an accurate BoardBits struct with all of the bits
 
-    for row in 0..9{
-        for col in 0..9 {
-            if game.board[row][col] == 0 {
-                for digit in 1..10 {
-                    println!("searching for onlies: row {} col {} digit {}", row+1, col+1, digit);
-                    let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
+    for digit in 1..10 {
+        let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
+        for row in 0..9{
+            for col in 0..9 {
+                if game.board[row][col] == 0 {
+                    if game.verbose {
+                        println!("searching for onlies: row {} col {} digit {}", row+1, col+1, digit);
+                    }
                     
                     // Only care about checking digits that are a possiblity
                     if game.board_bits[row][col] & digit_bits == 0 {
                         continue;
                     }
+
                     
                     // If only digit in the row, then set that cell and return
                     {
@@ -274,7 +322,7 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
                         }
                     }
                     
-                    // If only digit in the col, then set that cell and return
+                    // If only digit in the house, then set that cell and return
                     {
                         let mut found_elsewhere = false;
                         for r in row/3*3..row/3*3+3 {
