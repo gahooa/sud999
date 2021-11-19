@@ -4,26 +4,96 @@ const BIT_NONE:u32 = 0b000000000;
 const BIT_NINE:u32 = 0b111111111;
 
 
-
-type BoardStruct = [[i8; 9]; 9];
+type BoardGrid = [[i8; 9]; 9];
 type BoardBits = [[u32; 9]; 9];
+
+
+#[derive(Copy, Clone)]
+struct Board{
+    grid: BoardGrid,
+    bits: BoardBits,
+}
+
+impl Board {
+    /*
+    fn copy(&self) -> Board {
+        let mut board = Board{
+            grid: [[0; 9]; 9],
+            bits: [[BIT_NONE;9]; 9],  
+        };
+        
+        board.grid.copy_from_slice(&self.grid);
+
+        return board;
+    }
+     */
+    fn set_bits(&mut self) {
+        for row in 0..9 {
+            for col in 0..9 {
+                self._set_bits_for_cell(row, col);
+            }
+        }
+    }
+
+    fn _set_bits_for_cell(&mut self, row:usize, col:usize) {
+        let mut cell_bits = BIT_NINE;
+
+        if self.grid[row][col] > 0 {
+            self.bits[row][col] = 2u32.pow((self.grid[row][col]-1).try_into().unwrap());
+            return;
+        }
+
+        for digit in 1i8..10 {
+            let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
+            
+            // subtract any matches on this row
+            for c in 0..9 {
+                if self.grid[row][c] == digit {
+                    cell_bits = cell_bits & (!digit_bits);
+                    break;
+                }
+            }
+            
+            // subtract any matches on this col
+            for r in 0..9 {
+                if self.grid[r][col] == digit {
+                    cell_bits = cell_bits & (!digit_bits);
+                    break;
+                }
+            }
+
+            // subtract any matches in this house
+            for c in col/3*3..col/3*3+3 {
+                for r in row/3*3..row/3*3+3 {
+                    if self.grid[r][c] == digit {
+                        cell_bits = cell_bits & (!digit_bits);
+                        break;
+                    }
+                }
+            }
+        }
+        self.bits[row][col] = cell_bits;
+    }
+}
+
 
 struct Position{
     line: usize,
     char: usize,
 }
-struct GameStruct {
-    board: BoardStruct,
-    board_bits: BoardBits,
+struct Game {
+    board: Board,
     iterations: u64,
     verbose: bool,
 }
 
 pub fn run() {
 
-    let mut game = GameStruct{
-        board: [[ -1; 9]; 9],
-        board_bits: [[BIT_NONE;9]; 9],  
+    let mut game = Game{
+        board: Board{
+            grid: [[ -1; 9]; 9],
+            bits: [[BIT_NONE;9]; 9],  
+        },
         iterations: 0,
         verbose: false,
     };
@@ -47,7 +117,7 @@ pub fn run() {
         
         match parse_board_string(&mut buffer) {
             Ok(brd) => {
-                game.board = brd;
+                game.board.grid = brd;
                 break;
             },
             Err(m) => println!("Error in board format: {}", m),
@@ -63,10 +133,10 @@ pub fn run() {
 
 
 
-fn parse_board_string(bs:&mut String) -> Result<BoardStruct, String>{
+fn parse_board_string(bs:&mut String) -> Result<BoardGrid, String>{
     const NEGATIVE_ONE:i8 = -1;
     let mut pos = Position{line:0, char:0};
-    let mut brd: BoardStruct = [[NEGATIVE_ONE; 9]; 9];
+    let mut brd: BoardGrid = [[NEGATIVE_ONE; 9]; 9];
     let mut actual_char_number = 0;
     let mut actual_line_number = 1;
     
@@ -171,12 +241,12 @@ fn parse_board_string(bs:&mut String) -> Result<BoardStruct, String>{
 
 }
 
-fn print_game(game:&GameStruct) {
+fn print_game(game:&Game) {
     print_board(&game.board);
     println!("Iterations: {}", game.iterations);
 }
 
-fn print_board(board:&BoardStruct) {
+fn print_board(board:&Board) {
 
     let pc = |num:i8| {
         match num {
@@ -195,22 +265,20 @@ fn print_board(board:&BoardStruct) {
         }
     };
 
-    println!("+-------+-------+-------+");
-    for (i,l) in board.iter().enumerate() {
+    for (i,l) in board.grid.iter().enumerate() {
+        if i % 3 == 0 {
+            println!("+-------+-------+-------+");
+        }
         println!(
             "| {} {} {} | {} {} {} | {} {} {} |", 
             pc(l[0]), pc(l[1]), pc(l[2]), pc(l[3]), pc(l[4]), pc(l[5]), pc(l[6]), pc(l[7]), pc(l[8])
         );
-        if i == 2 || i == 5 || i == 8 {
-            println!("+-------+-------+-------+");
-        }
     }
-}
-
-fn print_bits(board_bits:&BoardBits) {
+    println!("+-------+-------+-------+");
+    
     for row in 0..9 {
         for col in 0..9 {
-            print!("{:#011b}  ", board_bits[row][col]);
+            print!("{:#011b}  ", board.bits[row][col]);
             if col % 3 == 2 {
                 print!("  ");
             }
@@ -223,14 +291,14 @@ fn print_bits(board_bits:&BoardBits) {
 }
 
 
-fn solve_game(game:&mut GameStruct){
+
+fn solve_game(game:&mut Game){
     loop{
         game.iterations += 1;
         println!("Starting iteration {}", game.iterations);
-        let updated = solve_game_iteration(game);
+        let updated = solve_game_iteration(&mut game.board);
 
         print_board(&game.board);
-        print_bits(&game.board_bits);
 
         if ! updated {
             println!("Nothing updated");
@@ -241,7 +309,7 @@ fn solve_game(game:&mut GameStruct){
         let mut count_empty = 0;
         for row in 0..9{
             for col in 0..9 {
-                if game.board[row][col] == 0 {
+                if game.board.grid[row][col] == 0 {
                     count_empty += 1;
                 }
             }
@@ -259,19 +327,9 @@ fn solve_game(game:&mut GameStruct){
     
 }
 
-fn solve_game_iteration(game:&mut GameStruct) -> bool{
+fn solve_game_iteration(board:&mut Board) -> bool{
 
-    // Update all of the board bits
-    for row in 0..9 {
-        for col in 0..9 {
-            if game.board[row][col] == 0 {
-                game.board_bits[row][col] = solve_bits(&game, row, col);
-            }
-            else {
-                game.board_bits[row][col] = 2u32.pow((game.board[row][col]-1).try_into().unwrap()); 
-            }
-        }
-    }
+    board.set_bits();
 
     // At this point we have an accurate BoardBits struct with all of the bits
 
@@ -279,13 +337,10 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
         let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
         for row in 0..9{
             for col in 0..9 {
-                if game.board[row][col] == 0 {
-                    if game.verbose {
-                        println!("searching for onlies: row {} col {} digit {}", row+1, col+1, digit);
-                    }
+                if board.grid[row][col] == 0 {
                     
                     // Only care about checking digits that are a possiblity
-                    if game.board_bits[row][col] & digit_bits == 0 {
+                    if board.bits[row][col] & digit_bits == 0 {
                         continue;
                     }
 
@@ -295,13 +350,13 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
                         let mut found_elsewhere = false;
                         for c in 0..9 {
                             if c != col {
-                                if game.board_bits[row][c] & digit_bits == digit_bits {
+                                if board.bits[row][c] & digit_bits == digit_bits {
                                     found_elsewhere = true;
                                 }
                             }
                         }
                         if ! found_elsewhere {
-                            game.board[row][col] = digit;
+                            board.grid[row][col] = digit;
                             return true;
                         }
                     }
@@ -311,13 +366,13 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
                         let mut found_elsewhere = false;
                         for r in 0..9 {
                             if r != row {
-                                if game.board_bits[r][col] & digit_bits == digit_bits {
+                                if board.bits[r][col] & digit_bits == digit_bits {
                                     found_elsewhere = true;
                                 }
                             }
                         }
                         if ! found_elsewhere {
-                            game.board[row][col] = digit;
+                            board.grid[row][col] = digit;
                             return true;
                         }
                     }
@@ -328,14 +383,14 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
                         for r in row/3*3..row/3*3+3 {
                             for c in col/3*3..col/3*3+3 {
                                 if ! (r == row && c == col) {
-                                    if game.board_bits[r][c] & digit_bits == digit_bits {
+                                    if board.bits[r][c] & digit_bits == digit_bits {
                                         found_elsewhere = true;
                                     }
                                 }
                             }
                         }
                         if ! found_elsewhere {
-                            game.board[row][col] = digit;
+                            board.grid[row][col] = digit;
                             return true;
                         }
                     }
@@ -349,42 +404,3 @@ fn solve_game_iteration(game:&mut GameStruct) -> bool{
 
 
 }
-
-fn solve_bits(game:&GameStruct, row:usize, col:usize) -> u32 {
-    
-    let mut rval = BIT_NINE;
-
-    for digit in 1i8..10 {
-        let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
-        
-        // subtract any matches on this row
-        for c in 0..9 {
-            if game.board[row][c] == digit {
-                rval = rval & (!digit_bits);
-                break;
-            }
-        }
-        
-        // subtract any matches on this col
-        for r in 0..9 {
-            if game.board[r][col] == digit {
-                rval = rval & (!digit_bits);
-                break;
-            }
-        }
-
-        // subtract any matches in this house
-        for c in col/3*3..col/3*3+3 {
-            for r in row/3*3..row/3*3+3 {
-                if game.board[r][c] == digit {
-                    rval = rval & (!digit_bits);
-                    break;
-                }
-            }
-        }
-       
-    }
-
-    return rval;
-}
-
