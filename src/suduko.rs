@@ -74,6 +74,50 @@ impl Board {
         }
         self.bits[row][col] = cell_bits;
     }
+
+    fn print(&self) {
+
+        let pc = |num:i8| {
+            match num {
+                -1 => 'N',
+                0 => '.',
+                1 => '1',
+                2 => '2',
+                3 => '3',
+                4 => '4',
+                5 => '5',
+                6 => '6',
+                7 => '7',
+                8 => '8',
+                9 => '9',
+                _ => panic!("Invalid number!"),
+            }
+        };
+    
+        for (i,l) in self.grid.iter().enumerate() {
+            if i % 3 == 0 {
+                println!("+-------+-------+-------+");
+            }
+            println!(
+                "| {} {} {} | {} {} {} | {} {} {} |", 
+                pc(l[0]), pc(l[1]), pc(l[2]), pc(l[3]), pc(l[4]), pc(l[5]), pc(l[6]), pc(l[7]), pc(l[8])
+            );
+        }
+        println!("+-------+-------+-------+");
+        
+        for row in 0..9 {
+            for col in 0..9 {
+                print!("{:#011b}  ", self.bits[row][col]);
+                if col % 3 == 2 {
+                    print!("  ");
+                }
+            }
+            if row % 3 == 2 {
+                println!("");
+            }
+            println!("");
+        }
+    }
 }
 
 
@@ -87,6 +131,50 @@ struct Game {
     verbose: bool,
 }
 
+
+impl Game {
+    fn solve(&mut self) {
+        loop{
+            self.iterations += 1;
+            println!("Starting iteration {}", self.iterations);
+            let updated = solve_game_iteration(&mut self.board);
+    
+            self.print();
+    
+            if ! updated {
+                println!("Nothing updated");
+                return;
+            }
+    
+            // Determine game is solved by counting zeros
+            let mut count_empty = 0;
+            for row in 0..9{
+                for col in 0..9 {
+                    if self.board.grid[row][col] == 0 {
+                        count_empty += 1;
+                    }
+                }
+            }
+            
+            if count_empty == 0 {
+                println!("SOLVED");
+                return;
+            }
+    
+            //let mut s = String::new();
+            //println!("Enter to continue...");
+            //std::io::stdin().read_line(&mut s).expect("Fatal Error");
+        }
+
+    }
+
+    fn print(&self) {
+        self.board.print();
+        println!("Iterations: {}", self.iterations);
+    }
+}
+
+
 pub fn run() {
 
     let mut game = Game{
@@ -98,9 +186,7 @@ pub fn run() {
         verbose: false,
     };
 
-    
-    print_board(&game.board);
-
+   
     loop {
         println!("Paste new board with a line break at the end followed by ctrl+d.");
         println!("Hint: press ctrl+d to generate an example board.");
@@ -125,10 +211,9 @@ pub fn run() {
     }
     
     println!("\n*** Board Accepted ***\n");
-    print_board(&game.board);
-
-    solve_game(&mut game);
-    print_game(&game);
+    game.print();
+    game.solve();
+    game.print();
 }
 
 
@@ -237,95 +322,14 @@ fn parse_board_string(bs:&mut String) -> Result<BoardGrid, String>{
         }
     }
 
-    return Ok(brd);
+    return Result::Ok(brd);
 
 }
 
-fn print_game(game:&Game) {
-    print_board(&game.board);
-    println!("Iterations: {}", game.iterations);
-}
-
-fn print_board(board:&Board) {
-
-    let pc = |num:i8| {
-        match num {
-            -1 => 'N',
-            0 => '.',
-            1 => '1',
-            2 => '2',
-            3 => '3',
-            4 => '4',
-            5 => '5',
-            6 => '6',
-            7 => '7',
-            8 => '8',
-            9 => '9',
-            _ => panic!("Invalid number!"),
-        }
-    };
-
-    for (i,l) in board.grid.iter().enumerate() {
-        if i % 3 == 0 {
-            println!("+-------+-------+-------+");
-        }
-        println!(
-            "| {} {} {} | {} {} {} | {} {} {} |", 
-            pc(l[0]), pc(l[1]), pc(l[2]), pc(l[3]), pc(l[4]), pc(l[5]), pc(l[6]), pc(l[7]), pc(l[8])
-        );
-    }
-    println!("+-------+-------+-------+");
-    
-    for row in 0..9 {
-        for col in 0..9 {
-            print!("{:#011b}  ", board.bits[row][col]);
-            if col % 3 == 2 {
-                print!("  ");
-            }
-        }
-        if row % 3 == 2 {
-            println!("");
-        }
-        println!("");
-    }
-}
 
 
 
-fn solve_game(game:&mut Game){
-    loop{
-        game.iterations += 1;
-        println!("Starting iteration {}", game.iterations);
-        let updated = solve_game_iteration(&mut game.board);
 
-        print_board(&game.board);
-
-        if ! updated {
-            println!("Nothing updated");
-            return;
-        }
-
-        // Determine game is solved by counting zeros
-        let mut count_empty = 0;
-        for row in 0..9{
-            for col in 0..9 {
-                if game.board.grid[row][col] == 0 {
-                    count_empty += 1;
-                }
-            }
-        }
-        
-        if count_empty == 0 {
-            println!("SOLVED");
-            return;
-        }
-
-        //let mut s = String::new();
-        //println!("Enter to continue...");
-        //std::io::stdin().read_line(&mut s).expect("Fatal Error");
-    }
-    
-}
 
 fn solve_game_iteration(board:&mut Board) -> bool{
 
