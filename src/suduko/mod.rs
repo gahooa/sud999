@@ -12,6 +12,8 @@ type BoardBits = [[u32; 9]; 9];
 struct Board{
     grid: BoardGrid,
     bits: BoardBits,
+    depth: u32,
+    iteration: u64,
 }
 
 impl Board {
@@ -27,6 +29,115 @@ impl Board {
         return board;
     }
      */
+
+
+    fn solve(&mut self) -> Result::<Board,(Board, String)>{
+        loop{
+            let updated = self.solve_iteration();
+    
+            if ! updated {
+                 return Err((self.clone(), "Ran out of guesses".to_string()));
+            }
+    
+            // Determine game is solved by counting zeros
+            let mut count_empty = 0;
+            for row in 0..9{
+                for col in 0..9 {
+                    if self.grid[row][col] == 0 {
+                        count_empty += 1;
+                    }
+                }
+            }
+            
+            if count_empty == 0 {
+                return Ok(self.clone());
+            }
+    
+            //let mut s = String::new();
+            //println!("Enter to continue...");
+            //std::io::stdin().read_line(&mut s).expect("Fatal Error");
+        }
+
+    }
+
+    fn solve_iteration(&mut self) -> bool{
+        self.iteration += 1;
+        self.set_bits();
+    
+        // At this point we have an accurate BoardBits struct with all of the bits
+    
+        for digit in 1..10 {
+            let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
+            for row in 0..9{
+                for col in 0..9 {
+                    if self.grid[row][col] == 0 {
+                        
+                        // Only care about checking digits that are a possiblity
+                        if self.bits[row][col] & digit_bits == 0 {
+                            continue;
+                        }
+    
+                        
+                        // If only digit in the row, then set that cell and return
+                        {
+                            let mut found_elsewhere = false;
+                            for c in 0..9 {
+                                if c != col {
+                                    if self.bits[row][c] & digit_bits == digit_bits {
+                                        found_elsewhere = true;
+                                    }
+                                }
+                            }
+                            if ! found_elsewhere {
+                                self.grid[row][col] = digit;
+                                return true;
+                            }
+                        }
+    
+                        // If only digit in the col, then set that cell and return
+                        {
+                            let mut found_elsewhere = false;
+                            for r in 0..9 {
+                                if r != row {
+                                    if self.bits[r][col] & digit_bits == digit_bits {
+                                        found_elsewhere = true;
+                                    }
+                                }
+                            }
+                            if ! found_elsewhere {
+                                self.grid[row][col] = digit;
+                                return true;
+                            }
+                        }
+                        
+                        // If only digit in the house, then set that cell and return
+                        {
+                            let mut found_elsewhere = false;
+                            for r in row/3*3..row/3*3+3 {
+                                for c in col/3*3..col/3*3+3 {
+                                    if ! (r == row && c == col) {
+                                        if self.bits[r][c] & digit_bits == digit_bits {
+                                            found_elsewhere = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if ! found_elsewhere {
+                                self.grid[row][col] = digit;
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        
+        return false;
+    
+    
+    }
+
     fn set_bits(&mut self) {
         for row in 0..9 {
             for col in 0..9 {
@@ -34,7 +145,6 @@ impl Board {
             }
         }
     }
-
     fn _set_bits_for_cell(&mut self, row:usize, col:usize) {
         let mut cell_bits = BIT_NINE;
 
@@ -133,44 +243,26 @@ struct Game {
 
 
 impl Game {
-    fn solve(&mut self) {
-        loop{
-            self.iterations += 1;
-            println!("Starting iteration {}", self.iterations);
-            let updated = solve_game_iteration(&mut self.board);
-    
-            self.print();
-    
-            if ! updated {
-                println!("Nothing updated");
-                return;
-            }
-    
-            // Determine game is solved by counting zeros
-            let mut count_empty = 0;
-            for row in 0..9{
-                for col in 0..9 {
-                    if self.board.grid[row][col] == 0 {
-                        count_empty += 1;
-                    }
-                }
-            }
-            
-            if count_empty == 0 {
-                println!("SOLVED");
-                return;
-            }
-    
-            //let mut s = String::new();
-            //println!("Enter to continue...");
-            //std::io::stdin().read_line(&mut s).expect("Fatal Error");
-        }
 
-    }
 
     fn print(&self) {
         self.board.print();
         println!("Iterations: {}", self.iterations);
+    }
+
+    fn solve(&mut self) {
+        let mut new_board_in = self.board.clone();
+        match new_board_in.solve() {
+            Ok(new_board_out) => {
+                println!("GAME SOLVED");
+                self.board = new_board_out;
+                self.print();
+            },
+            Err((new_board_out, msg)) => {
+                println!("ERROR SOLVING BOARD: {}", msg);
+                new_board_out.print();
+            }
+        }
     }
 }
 
@@ -180,7 +272,9 @@ pub fn run() {
     let mut game = Game{
         board: Board{
             grid: [[ -1; 9]; 9],
-            bits: [[BIT_NONE;9]; 9],  
+            bits: [[BIT_NONE;9]; 9], 
+            depth: 0,
+            iteration: 0, 
         },
         iterations: 0,
         verbose: false,
@@ -213,7 +307,6 @@ pub fn run() {
     println!("\n*** Board Accepted ***\n");
     game.print();
     game.solve();
-    game.print();
 }
 
 
@@ -331,80 +424,4 @@ fn parse_board_string(bs:&mut String) -> Result<BoardGrid, String>{
 
 
 
-fn solve_game_iteration(board:&mut Board) -> bool{
 
-    board.set_bits();
-
-    // At this point we have an accurate BoardBits struct with all of the bits
-
-    for digit in 1..10 {
-        let digit_bits = 2u32.pow((digit-1).try_into().unwrap());
-        for row in 0..9{
-            for col in 0..9 {
-                if board.grid[row][col] == 0 {
-                    
-                    // Only care about checking digits that are a possiblity
-                    if board.bits[row][col] & digit_bits == 0 {
-                        continue;
-                    }
-
-                    
-                    // If only digit in the row, then set that cell and return
-                    {
-                        let mut found_elsewhere = false;
-                        for c in 0..9 {
-                            if c != col {
-                                if board.bits[row][c] & digit_bits == digit_bits {
-                                    found_elsewhere = true;
-                                }
-                            }
-                        }
-                        if ! found_elsewhere {
-                            board.grid[row][col] = digit;
-                            return true;
-                        }
-                    }
-
-                    // If only digit in the col, then set that cell and return
-                    {
-                        let mut found_elsewhere = false;
-                        for r in 0..9 {
-                            if r != row {
-                                if board.bits[r][col] & digit_bits == digit_bits {
-                                    found_elsewhere = true;
-                                }
-                            }
-                        }
-                        if ! found_elsewhere {
-                            board.grid[row][col] = digit;
-                            return true;
-                        }
-                    }
-                    
-                    // If only digit in the house, then set that cell and return
-                    {
-                        let mut found_elsewhere = false;
-                        for r in row/3*3..row/3*3+3 {
-                            for c in col/3*3..col/3*3+3 {
-                                if ! (r == row && c == col) {
-                                    if board.bits[r][c] & digit_bits == digit_bits {
-                                        found_elsewhere = true;
-                                    }
-                                }
-                            }
-                        }
-                        if ! found_elsewhere {
-                            board.grid[row][col] = digit;
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    
-    return false;
-
-
-}
